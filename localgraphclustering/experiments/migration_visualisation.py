@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from . import migrationdata
+from uszipcode import SearchEngine
 
 
 # The number of vertices in the migration dataset.
@@ -15,6 +16,30 @@ MIG_N = 3075
 
 # Some useful colormaps
 CM_RAINBOW = plt.get_cmap('rainbow')
+
+
+def get_migration_zipcodes():
+    m = loadmat('datasets/migration/ALL_CENSUS_DATA_FEB_2015.mat')
+    # This is the array of latitude and longitude values for each vertex in the graph
+    lat_long = migrationdata.transpose_lists(m['A'])
+    long = lat_long[0]
+    lat = lat_long[1]
+
+    search = SearchEngine()
+
+    zip_codes = []
+    last_zipcode = 0
+    for v in range(len(long)):
+        result = search.by_coordinates(lat[v], long[v], returns=1)
+        if len(result) > 0:
+            zip = result[0].to_dict()["zipcode"]
+        else:
+            zip = last_zipcode
+        last_zipcode = zip
+        zip_codes.append(zip)
+
+    print('{"' + '", "'.join(zip_codes) + '"}')
+
 
 
 def plot_migration_values(v: List[float], cmap=CM_RAINBOW, norm_min=None, norm_max=None, colors=None, ignore_zeros=False):
@@ -36,7 +61,7 @@ def plot_migration_values(v: List[float], cmap=CM_RAINBOW, norm_min=None, norm_m
         normalize = None
 
     # Show the USA outline
-    usa_image = np.array(Image.open('datasets/migration/usa-map-grey.png'), dtype=np.uint8)
+    usa_image = np.array(Image.open('datasets/migration/usa-map-grey-thin.png'), dtype=np.uint8)
     plt.imshow(usa_image, extent=(-126, -65.8, 23.6, 50.3))
     # usa_image = np.array(Image.open('datasets/migration/usa-map.pdf'), dtype=np.uint8)
     # plt.imshow(usa_image, extent=(-126, -65.8, 23.6, 50.3))
@@ -97,14 +122,14 @@ def highlight_two_sets(L, R, show_others=False):
             j = i
         v[j] = 1
         # colors[j] = 'tab:green'
-        colors[j] = 'black'
+        colors[j] = '#ffb500'
     for i in R:
         if i > MIG_N:
             j = i - MIG_N
         else:
             j = i
         v[j] = 2
-        colors[j] = 'tab:red'
+        colors[j] = '#3b5998'
 
     plot_migration_values(v, colors=colors, ignore_zeros=(not show_others))
 

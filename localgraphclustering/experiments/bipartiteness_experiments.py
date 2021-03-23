@@ -15,6 +15,7 @@ from . import process_results, migrationdata, migration_visualisation
 import math
 import gc
 import random
+import glob
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -947,14 +948,30 @@ def print_country_groups(L, R, vertex_country_dict):
 def mid_experiment():
     """Run experiments with the military dataset"""
     # Load the three graphs of interest
-    G, vertex_country_dict, country_vertex_dict = load_mid_graph(1950, 1990)
-    graphs = [G]
+    G1, vertex_country_dict, country_vertex_dict = load_mid_graph(1800, 1900)
+    G2, vertex_country_dict, country_vertex_dict = load_mid_graph(1900, 1950)
+    G3, vertex_country_dict, country_vertex_dict = load_mid_graph(1950, 1990)
+    G4, vertex_country_dict, country_vertex_dict = load_mid_graph(1990, 2010)
+    graphs = [G1, G2, G3, G4]
     # for start_year in range(1800, 2000, 200):
     #     end_year = start_year + 100
     #     graph, vertex_country_dict, country_vertex_dict = load_mid_graph(start_year, end_year)
     #     graphs.append(graph)
 
+    ########################################
+    # Get the key stats for each graph
+    ########################################
+    # for i, graph in enumerate(graphs):
+    #     A vertex is only counted if it has a non-zero degree
+    #     n = graph.d.nonzero()[0].shape[0]
+    #     m = int(graph.adjacency_matrix.nnz / 2)
+    #     print(f"Graph {i}, n = {n}, m = {m}")
+    # return
+
     starting_country = "United States of America"
+    starting_country = "Saudi Arabia"
+    starting_country = "Democratic Republic of the Congo"
+    starting_country = "Brazil"
 
     # Compute the parameters for the algorithms. Based on the result of the cheeger cut algorithm
     # MS_parameters = [(0.001, 1e-8), (0.5, 1e-6), (0.5, 1e-6)]
@@ -982,26 +999,48 @@ def mid_experiment():
         print(f"Graph {i + 1}")
 
         # Run the MS algorithm
-        start_time = time.clock()
+        # start_time = time.clock()
         ms_L, ms_R, ms_bipart = lgc.find_bipartite_clusters.ms_almost_bipartite(
             G, country_vertex_dict[starting_country], alpha=MS_parameters[i][0], epsilon=MS_parameters[i][1]
         )
-        ms_time = time.clock() - start_time
+        # ms_time = time.clock() - start_time
         print("MS Algorithm")
-        print(f"\ttime:\t\t\t{ms_time:.3f}\n\tbipartiteness:\t{ms_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(ms_L + ms_R))}")
+        # print(f"\ttime:\t\t\t{ms_time:.3f}\n\tbipartiteness:\t{ms_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(ms_L + ms_R))}")
+        print(f"\tbipartiteness:\t{ms_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(ms_L + ms_R))}")
         print_country_groups(ms_L, ms_R, vertex_country_dict)
         print()
 
         # Run the LP algorithm
-        start_time = time.clock()
+        # start_time = time.clock()
         lp_L, lp_R, lp_bipart = lgc.find_bipartite_clusters.lp_almost_bipartite(
             G, country_vertex_dict[starting_country], T=LP_parameters[i][0], xi_0=LP_parameters[i][1]
         )
-        lp_time = time.clock() - start_time
+        # lp_time = time.clock() - start_time
         print("LP Algorithm")
-        print(f"\ttime:\t\t\t{lp_time:.3f}\n\tbipartiteness:\t{lp_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(lp_L + lp_R))}")
+        # print(f"\ttime:\t\t\t{lp_time:.3f}\n\tbipartiteness:\t{lp_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(lp_L + lp_R))}")
+        print(f"\tbipartiteness:\t{lp_bipart:.3f}\n\tvolume:\t\t\t{int(G.volume(lp_L + lp_R))}")
         print_country_groups(ms_L, ms_R, vertex_country_dict)
         print()
+
+
+def run_esp_5_times(G_dc, starting_vertices):
+    best_FR = 1
+    best_L = []
+    best_R = []
+    best_CI = 0
+
+    for i in range(5):
+        L, R, CI = lgc.find_bipartite_clusters.ms_evo_cut_directed(G_dc, starting_vertices, 0.1, T=2, debug=False)
+        S = L + [v + migration_visualisation.MIG_N for v in R]
+        fr = G_dc.compute_conductance(S, cpp=False)
+
+        if fr < best_FR:
+            best_FR = fr
+            best_L = L
+            best_R = R
+            best_CI = CI
+
+    return best_L, best_R, best_CI, best_FR
 
 
 def migration_experiment():
@@ -1027,53 +1066,56 @@ def migration_experiment():
     ##########################################
     # Run a bunch of experiments
     #########################################
-    migration_semi_DC = migrationdata.load_migration_semi_dc()
-    all_indices = migrationdata.NEW_YORK_INDEX_SET + migrationdata.GEORGIA_INDEX_SET + migrationdata.SAN_FRAN_INDEX_SET + migrationdata.OHIO_INDEX_SET + migrationdata.WEST_INDEX_SET + migrationdata.MIDWEST_INDEX_SET + migrationdata.SOUTH_INDEX_SET + migrationdata.FLORIDA_INDEX_SET
+    # migration_semi_DC = migrationdata.load_migration_semi_dc()
+    # all_indices = migrationdata.NEW_YORK_INDEX_SET + migrationdata.GEORGIA_INDEX_SET + migrationdata.SAN_FRAN_INDEX_SET + migrationdata.OHIO_INDEX_SET + migrationdata.WEST_INDEX_SET + migrationdata.MIDWEST_INDEX_SET + migrationdata.SOUTH_INDEX_SET + migrationdata.FLORIDA_INDEX_SET
     # all_indices = migrationdata.NEW_YORK_INDEX_SET
-    starting_vertices_list = [[v + migration_visualisation.MIG_N] for v in all_indices]
-    starting_vertices_list = starting_vertices_list + [[v] for v in all_indices]
-    print(f"All starting vertices: {starting_vertices_list}")
-    for vertex_idx, starting_vertices in enumerate(starting_vertices_list):
-        print(f"Starting vertices: {starting_vertices}")
-        CIs = []
-        volumes = []
-        best_CI = 0
-        best_L = []
-        best_R = []
-        num_trials = 20
-        for i in range(num_trials):
-            print(f"Vertex {vertex_idx + 1}/{len(starting_vertices_list)}; Run {i + 1}/{num_trials}")
-            L, R, CI = lgc.find_bipartite_clusters.ms_evo_cut_directed(migration_semi_DC, starting_vertices,
-                                                                       0.1, T=2, debug=False)
-            volume = migration_semi_DC.volume(L + R)
-            print(f"CI: {CI:.4f}")
-            print(f"Volume: {volume}")
-            print(L)
-            print(R)
-            CIs.append(CI)
-            volumes.append(volume)
+    # all_indices = [315, 157, 163, 1865, 163, 1833, 2025, 1822]
+    # all_indices = [1449, 1709]
+    # starting_vertices_list = [[v + migration_visualisation.MIG_N] for v in all_indices]
+    # starting_vertices_list = starting_vertices_list + [[v] for v in all_indices]
+    # print(f"All starting vertices: {starting_vertices_list}")
+    # for vertex_idx, starting_vertices in enumerate(starting_vertices_list):
+    #     print(f"Starting vertices: {starting_vertices}")
+    #     CIs = []
+    #     FRs = []
+    #     volumes = []
+    #     best_CI = 0
+    #     best_L = []
+    #     best_R = []
+    #     num_trials = 10
+    #     for i in range(num_trials):
+    #         print(f"Vertex {vertex_idx + 1}/{len(starting_vertices_list)}; Run {i + 1}/{num_trials}")
+    #         L, R, CI, FR = run_esp_5_times(migration_semi_DC, starting_vertices)
+    #         volume = migration_semi_DC.volume(L + R)
+    #         CIs.append(CI)
+    #         FRs.append(FR)
+    #         volumes.append(volume)
 
             # If the best CI is at least 0.25, then save the image and clusters
-            if 0.5 > CI > 0.25:
-                print("!!! Saving output")
-                plt.clf()
-                migration_visualisation.highlight_two_sets(L, R)
-                fig = plt.gcf()
-                fig.savefig(f"results/migration/normalised/start_{starting_vertices[0]}_ci_{CI:.4f}.png")
-                with open(f"results/migration/normalised/start_{starting_vertices[0]}_ci_{CI:.4f}.txt",
-                          'w') as fout:
-                    fout.write(f"{L}\n{R}\n")
-            print()
+            # if 0.5 > CI > 0.25:
+            #     print("!!! Saving output")
+            #     plt.clf()
+            #     migration_visualisation.highlight_two_sets(L, R)
+            #     fig = plt.gcf()
+            #     fig.savefig(f"results/migration/normalised/start_{starting_vertices[0]}_ci_{CI:.4f}.png")
+            #     with open(f"results/migration/normalised/start_{starting_vertices[0]}_ci_{CI:.4f}.txt",
+            #               'w') as fout:
+            #         fout.write(f"{L}\n{R}\n")
+            # print()
 
 
-            if best_CI < CI < 0.5:
-                best_CI = CI
-                best_L = L
-                best_R = R
+            # if best_CI < CI < 0.5:
+            #     best_CI = CI
+            #     best_L = L
+            #     best_R = R
 
-        print(f"BEST CI: {best_CI}")
-        print(f"AVERAGE CI: {np.mean(CIs)}")
-        print(f"AVERAGE VOL: {np.mean(volumes)}")
+        # print(f"Vertex: {starting_vertices[0]}")
+        # print(f"Avg CI: {np.mean(CIs)}")
+        # print(f"Avg FR: {np.mean(FRs)}")
+        # print()
+        # print(f"BEST CI: {best_CI}")
+        # print(f"AVERAGE CI: {np.mean(CIs)}")
+        # print(f"AVERAGE VOL: {np.mean(volumes)}")
 
         # If the best CI is at least 0.25, then save the image and clusters
         # if best_CI > 0.25:
@@ -1086,17 +1128,41 @@ def migration_experiment():
         #         fout.write(f"{best_L}\n{best_R}\n")
 
         # Print a newline before the next iteration
-        print()
+        # print()
+
+    #############################################
+    # Check the flow ratios of existing clusters
+    #############################################
+    # migration_semi_DC = migrationdata.load_migration_semi_dc()
+    # n = int(migration_semi_DC.adjacency_matrix.shape[0] / 2)
+    # folder = "/home/peter/wc/dcpagerank/localgraphclustering/experiments/results/migration/normalised/good"
+    # files = glob.glob(folder + '/*.txt')
+    #
+    # for filename in files:
+    #     with open(filename, 'r') as fin:
+    #         Load the sets
+            # L = [int(s) for s in fin.readline().strip()[1:-1].split(',')]
+            # R = [int(s) for s in fin.readline().strip()[1:-1].split(',')]
+        #
+        # Compute the flow ratio
+        # S = L + [v + n for v in R]
+        # fr = migration_semi_DC.compute_conductance(S)
+        #
+        # Print the flow ratio
+        # if fr < 0.8:
+        #     print(f"{filename.split('/')[-1]}: {fr}")
 
     #############################
     # Visualise set of vertices
     #############################
     # migration_visualisation.highlight_migration_set(migrationdata.WEST_INDEX_SET)
     # start_vertex = 3466
-    # L = [1408, 2, 3, 2443, 1936, 401, 402, 2710, 408, 409, 1954, 291, 421, 296, 428, 49, 309, 442, 454, 456, 328, 464, 2773, 473, 480, 481, 357, 358, 501, 380]
-    # R = [512, 391, 472, 474, 115, 1015]
+    # L = [157, 158, 159, 160, 161, 163, 162, 167, 176, 178, 200]
+    # R = [780, 278, 2586, 166, 175, 813, 187, 188, 1724, 194, 195, 203, 204, 205, 1614, 213, 243]
+
     # migration_visualisation.highlight_two_sets(L, R)
     # plt.show()
+    migration_visualisation.get_migration_zipcodes()
 
     #####################################
     # Find starting indices

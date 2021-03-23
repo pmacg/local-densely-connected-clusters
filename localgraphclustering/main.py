@@ -71,16 +71,18 @@ def main():
     ##############################################
     # Draw averaged curves
     ##############################################
-    # size = 1000
-    # d = 30
+    # size = 100
+    # d = 20
     # prop = None
     # max_time = None
     # starting_vertices = list(range(1, 6)) + [(size * 100) + n for n in list(range(1, 6))]
     # starting_vertices = [1, 2, 3]
-    # times, ms_ari, lp_ari = experiments.get_avg_curve(size, d, 'ari', False, starting_vertices, prop=prop, max_time=max_time)
+    # times, ms_obj, lp_obj = experiments.get_avg_curve(size, d, 'ari', False, starting_vertices, prop=prop, max_time=max_time)
+    # times, ms_obj, lp_obj = experiments.get_avg_curve(size, d, 'bipartiteness', True, starting_vertices, prop=prop, max_time=max_time)
+    # times, ms_obj, lp_obj = experiments.get_avg_curve(size, d, 'symdiff', True, starting_vertices, prop=prop, max_time=max_time)
     # print(list(times))
-    # print(ms_ari)
-    # print(lp_ari)
+    # print(ms_obj)
+    # print(lp_obj)
 
     ############################################
     # Analyse ratio experiment
@@ -91,7 +93,7 @@ def main():
     # p1 = 0.001
     # p2 = 0.002
     # q2 = 0.0001
-    # multiples = list(range(1, 11)) + [16, 32]
+    # multiples = list(range(1, 11)) #+ [16, 32]
     # starting_vertices = list(range(1, 6)) + [(size * 100) + n for n in list(range(1, 6))]
     # best_ms_objs = []
     # best_lp_objs = []
@@ -100,17 +102,17 @@ def main():
     #     for v_start in starting_vertices:
     #         filenames[v_start] = (f"results/ms_{size}00_vertex_{v_start}_mult_{mult}.csv", f"results/lp_{size}00_vertex_{v_start}_mult_{mult}.csv")
     #     times, ms_obj, lp_obj = experiments.get_avg_curve(
-    #         size, 20, 'ari', False, starting_vertices, plot=False, filenames=filenames)
+    #         size, 20, 'symdiff', True, starting_vertices, plot=False, filenames=filenames)
     #
         # Find the best objective in less than some maximum time
         # best_ms_obj = None
         # best_lp_obj = None
-        # max_time = 1
+        # max_time = 0.25
         # for i, time in enumerate(times):
         #     if time <= max_time:
-        #         if best_ms_obj is None or ms_obj[i] > best_ms_obj:
+        #         if best_ms_obj is None or ms_obj[i] < best_ms_obj:
         #             best_ms_obj = ms_obj[i]
-        #         if best_lp_obj is None or lp_obj[i] > best_lp_obj:
+        #         if best_lp_obj is None or lp_obj[i] < best_lp_obj:
         #             best_lp_obj = lp_obj[i]
         # print(f"Prop: {mult}\nBest MS obj: {best_ms_obj:.4f}\nBest LP obj: {best_lp_obj}\n")
         # best_lp_objs.append(best_lp_obj)
@@ -140,8 +142,8 @@ def main():
     # experiments.directed_experiment()
     # experiments.run_ratio_experiment()
     # experiments.reddit_experiment()
-    # experiments.mid_experiment()
-    experiments.migration_experiment()
+    experiments.mid_experiment()
+    # experiments.migration_experiment()
 
 
 if __name__ == "__main__":

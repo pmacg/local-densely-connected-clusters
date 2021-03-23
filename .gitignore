@@ -22,3 +22,4 @@ localgraphclustering/graph_lib/
 **/datasets/
 **/results/
 
+venv/

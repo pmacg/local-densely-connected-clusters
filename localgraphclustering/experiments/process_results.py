@@ -243,7 +243,7 @@ def get_avg_curve(size, degree, objective, minimise, vertices, prop=None, plot=T
     if plot:
         last_t = 0
         for i, t in enumerate(graph_times):
-            if i is not 0:
+            if i != 0:
                 print(f"{t:.3f}, {avg_ms_curve[i]:.3f}, {avg_lp_curve[i]:.3f}, {(avg_ms_curve[i] - avg_ms_curve[i - 1]) / (t - last_t):.3f}, {(avg_lp_curve[i] - avg_lp_curve[i - 1]) / (t - last_t):.3f}")
             last_t = t
         plt.plot(graph_times, avg_ms_curve)

@@ -224,6 +224,8 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
     L_other = []
     R_other = []
     for v in S:
+        if debug:
+            print(f"Processing {v}")
         if v < n:
             if (v + n) not in S:
                 L.append(v)
@@ -235,7 +237,7 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
 
     # If either cluster is empty, return
     if len(L) == 0 or len(R) == 0:
-        return L, R, 0
+        return L, R_other, 0
 
     # Compute the cut imbalance
     w_L_R = G.compute_weight(L, R)
