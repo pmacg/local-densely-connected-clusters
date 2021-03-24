@@ -658,8 +658,7 @@ class GraphLocal:
         :param R: another set of vertices
         :return: the edge weight
         """
-        A = self.adjacency_matrix.toarray()
-        return np.sum(A[np.array(L)[:, None], np.array(R)])
+        return self.adjacency_matrix[L][:, R].sum()
 
     def volume(self, S, cpp=True):
         """

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from . import migrationdata
-from uszipcode import SearchEngine
+# from uszipcode import SearchEngine
 
 
 # The number of vertices in the migration dataset.
@@ -25,18 +25,18 @@ def get_migration_zipcodes():
     long = lat_long[0]
     lat = lat_long[1]
 
-    search = SearchEngine()
+    # search = SearchEngine()
 
     zip_codes = []
-    last_zipcode = 0
-    for v in range(len(long)):
-        result = search.by_coordinates(lat[v], long[v], returns=1)
-        if len(result) > 0:
-            zip = result[0].to_dict()["zipcode"]
-        else:
-            zip = last_zipcode
-        last_zipcode = zip
-        zip_codes.append(zip)
+    # last_zipcode = 0
+    # for v in range(len(long)):
+    #     result = search.by_coordinates(lat[v], long[v], returns=1)
+    #     if len(result) > 0:
+    #         zip = result[0].to_dict()["zipcode"]
+    #     else:
+    #         zip = last_zipcode
+    #     last_zipcode = zip
+    #     zip_codes.append(zip)
 
     print('{"' + '", "'.join(zip_codes) + '"}')
 

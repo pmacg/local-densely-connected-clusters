@@ -3,7 +3,7 @@ Provides a main method for running code from this package.
 You should implement anything you'd like to run as a method in the experiments folder, and call a single function from
 this main function.
 """
-from stochastic_block_model import create_block_path_graph, create_block_cycle_graph, create_locally_bipartite_graph, pure_locally_bipartite_graph
+from stochastic_block_model import create_block_path_graph, create_block_cycle_graph, create_locally_bipartite_graph, pure_locally_bipartite_graph, create_local_flow_graph, create_triangle_flow_graph
 import experiments
 import os.path
 from matplotlib import pyplot as plt
@@ -137,13 +137,38 @@ def main():
     #     if not os.path.isfile(sbm_filename):
     #         pure_locally_bipartite_graph(sbm_filename, n1, n2, p1, q1, p2, q2)
 
+    ########################################################
+    # Create graphs from the directed stochastic block model
+    ########################################################
+    # ns = [100, 1000]
+    # qs = [3, 10]  # to be divided by n
+    # ps = [0, 0.5, 1]  # to be multiplied by q
+    # etas = [0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
+    # for n in ns:
+    #     for q_unnormalised in qs:
+    #         q = q_unnormalised / n
+    #         for p_unnormalised in ps:
+    #             p = p_unnormalised * q
+    #             for eta in etas:
+    #                 sbm_filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}.edgelist"
+    #                 if not os.path.isfile(sbm_filename):
+    #                     create_triangle_flow_graph(sbm_filename, n, p, q, eta)
+
+    ##################################################
+    # Test the CLSZ algorithm
+    ##################################################
+    # filename = "/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/triangle_flow_100_0.5_0.5_1.edgelist"
+    # create_triangle_flow_graph(filename, 100, 0.5, 0.5, 1)
+
     # experiments.run_full_experiment()
     # experiments.slashdot_experiment()
     # experiments.directed_experiment()
     # experiments.run_ratio_experiment()
     # experiments.reddit_experiment()
-    experiments.mid_experiment()
+    # experiments.mid_experiment()
     # experiments.migration_experiment()
+    experiments.run_directed_experiment()
 
 
 if __name__ == "__main__":

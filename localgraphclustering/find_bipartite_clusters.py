@@ -7,6 +7,9 @@ from .sweep_cut import sweep_cut_dc, sweep_cut_dc_from_signed_vec
 from .algorithms import eig_nL
 import localgraphclustering as lgc
 import scipy as sp
+import scipy.sparse
+import scipy.sparse.linalg
+from sklearn.cluster import KMeans
 import math
 import random
 import numpy.random as npr
@@ -140,11 +143,12 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
     :param starting_vertices: a list of starting vertices
     :param target_phi: the flow ratio of the target sets
     :param T: Optionally specify the internal parameter to use instead of the one computed from phi
-    :return: the returned clusters L and R, as vertex indices on the original graph, along with the flow ratio phi
+    :return: the returned clusters L and R, as vertex indices on the original graph, along with the cut imbalance and
+    flow ratio
     """
     # Compute the value of T to use
     if T is None:
-        T = math.floor(1 / (100 * (target_phi ** (2/3))))
+        T = max(2, math.floor(1 / (100 * (target_phi ** (2/3)))))
 
     if debug:
         print(f"T: {T}")
@@ -237,14 +241,21 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
 
     # If either cluster is empty, return
     if len(L) == 0 or len(R) == 0:
-        return L, R_other, 0
+        return L, R_other, 1, 1
 
     # Compute the cut imbalance
     w_L_R = G.compute_weight(L, R)
     w_R_L = G.compute_weight(R_other, L_other)
     CI = (1/2) * abs((w_L_R - w_R_L)/(w_L_R + w_R_L))
 
-    return L, R_other, CI
+    # Compute the flow ratio
+    FR = G.compute_conductance(L + R)
+    # w_L_R = G.compute_weight(L, R)
+    # vol_out_L = G.volume(L)
+    # vol_in_R = G.volume(R)
+    # FR = 1 - (2 * w_L_R) / (vol_out_L + vol_in_R)
+
+    return L, R_other, CI, FR
 
 
 def bipart_cheeger_cut(G):
@@ -264,3 +275,23 @@ def bipart_cheeger_cut(G):
 
     # Perform the sweep cut and return
     return sweep_cut_dc_from_signed_vec(G, range(n), top_eigvec, normalise_by_degree=True)
+
+
+def clsz_clusters(A, k):
+    """
+    Given a hermitian adjacency matrix, compute the clusters given by the CLSZ algorithm
+
+    Parameters
+    ----------
+    A - the hermitian adjacency matrix of the graph
+    k - the number of clusters to look for
+
+    Returns
+    -------
+    A partitioning of the vertices into clusters (as a list of lists).
+    """
+    eigenvalues, eigenvectors = sp.sparse.linalg.eigsh(A, k=int(2 * math.floor(k / 2)))
+    p = eigenvectors @ eigenvectors.transpose()
+    input_to_kmeans = np.block([[np.real(p), np.imag(p)]])
+    kmeans = KMeans(n_clusters=k).fit(input_to_kmeans)
+    return kmeans.labels_

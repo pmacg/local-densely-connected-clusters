@@ -11,7 +11,7 @@ import time
 import localgraphclustering as lgc
 import multiprocessing
 import sklearn as skl
-from . import process_results, migrationdata, migration_visualisation
+from . import process_results, migrationdata, migration_visualisation, hermitian
 import math
 import gc
 import random
@@ -86,6 +86,27 @@ def load_pure_sbm_graph(n1, n2, p1, q1, p2, q2):
     return lgc.GraphLocal(filename=f"datasets/sbm/local_cluster_size_{n1}_{n2}_{p1}_{q1}_{p2}_{q2}.edgelist")
 
 
+def get_local_dsbm_filename(n1, n2, p1, q1, p2, q2, f):
+    return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/directed_local_cluster_size_{n1}_{n2}_{p1}_{q1}_{p2}_{q2}_{f}.edgelist"
+
+
+def get_cyclic_dsbm_filename(n, p, q, eta):
+    """
+    Return the filename used to store the cdsbm with the given parameters.
+    Parameters
+    ----------
+    n
+    p
+    q
+    eta
+
+    Returns
+    -------
+    String
+    """
+    return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}.edgelist"
+
+
 def report_ms_performance(G, s, alpha, epsilon, target_L, target_R, show_output=True):
     """Print the performance of the MS algorithm for the given inputs."""
     start_time = time.clock()
@@ -121,6 +142,102 @@ def report_lp_performance(G, s, T, xi_0, target_L, target_R, plot=False, show_ou
         plt.show()
 
     return total_time_s, bipart, volume, ari, symdiff
+
+
+def report_evo_cut_directed_performance(G, target_l, target_r, esp_steps=None):
+    """Print the performance of the EvoCutDirected algorithm for the given inputs.
+    :param G: the double cover of the directed graph on which to find a flow-imbalanced set
+    :param target_l: the ground truth left cluster (in the original graph)
+    :param target_r: the ground truth right cluster (in the original graph)
+    :param esp_steps: optionally, specify the value of T to use in the evolving set algorithm
+    :return: time, flow_ratio, cut_imbalance, ari, misclassified_ratio
+    """
+    n = int(G.adjacency_matrix.shape[0] / 2)
+    start_time = time.clock()
+    L, R, cut_imbalance, flow_ratio = run_esp_5_times(G, target_l, T=esp_steps)
+    total_time_s = time.clock() - start_time
+
+    # Compute the ARI and misclassified ratio
+    ari = compute_ari(L, R, target_l, target_r, n)
+
+    true_labels = np.zeros((n, ))
+    true_labels[target_l] = 1
+    true_labels[target_r] = 2
+    predicted_labels = np.zeros((n, ))
+    predicted_labels[L] = 1
+    predicted_labels[R] = 2
+    misclassified_ratio = compute_misclassified_ratio(predicted_labels, true_labels)
+
+    # Return everything
+    return total_time_s, flow_ratio, cut_imbalance, ari, misclassified_ratio
+
+
+def compute_misclassified_ratio(predicted_labels, true_labels):
+    """
+    Given predicted and true labels, compute the number of miscalssified vertices. Check for permutations of the labels.
+
+    Parameters
+    ----------
+    predicted_labels
+    true_labels
+
+    Returns
+    -------
+    The number of misclassified vertices.
+    """
+    if max(predicted_labels) > 2 or max(true_labels) > 2:
+        raise Exception("Only works with 3 clusters.")
+
+    best_misclassified_ratio = 1
+    for perm in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]:
+        this_predicted_label = [perm[int(x)] for x in predicted_labels]
+        this_misclassified_ratio = 1 - skl.metrics.accuracy_score(true_labels, this_predicted_label)
+        if this_misclassified_ratio < best_misclassified_ratio:
+            best_misclassified_ratio = this_misclassified_ratio
+
+    return best_misclassified_ratio
+
+
+def report_clsz_performance(herm_adj, target_l, target_r, double_cover):
+    """Print the performance of the CLSZ algorithm for the given graph.
+    :param herm_adj: the sparse hermitian adjacency matrix of the graph
+    :param target_l: the ground truth left cluster (in the original graph)
+    :param target_r: the ground truth right cluster (in the original graph)
+    :param double_cover: the double cover of the graph, used to compute the flow ratio
+    :return: time, flow_ratio, cut_imbalance, ari, misclassified_ratio
+    """
+    n = herm_adj.shape[0]
+    start_time = time.clock()
+    cluster_labels = lgc.find_bipartite_clusters.clsz_clusters(herm_adj, 3)
+    total_time_s = time.clock() - start_time
+
+    # Compute the best flow ratio and cut_imbalance
+    best_flow_ratio = 1
+    best_cut_imbalance = 0
+    for i, j in [(0, 1), (1, 2), (2, 0), (1, 0), (2, 1), (0, 2)]:
+        this_l = np.where(cluster_labels == i)[0]
+        this_r = np.where(cluster_labels == j)[0]
+        s = np.append(this_l, [x + n for x in this_r])
+        flow_ratio = double_cover.compute_conductance(s, cpp=False)
+        if flow_ratio < best_flow_ratio:
+            best_flow_ratio = flow_ratio
+
+        e_l_r = double_cover.compute_weight(this_l, [v + n for v in this_r])
+        e_r_l = double_cover.compute_weight(this_r, [v + n for v in this_l])
+        cut_imbalance = 0.5 * math.fabs((e_l_r - e_r_l) / (e_l_r + e_r_l))
+        if cut_imbalance > best_cut_imbalance:
+            best_cut_imbalance = cut_imbalance
+
+    # Compute the ARI score for these labels
+    true_labels = np.zeros((n, ))
+    true_labels[target_l] = 1
+    true_labels[target_r] = 2
+    ari = skl.metrics.adjusted_rand_score(true_labels, cluster_labels)
+
+    # Compute the ratio of misclassified vertices
+    misclassified_ratio = compute_misclassified_ratio(cluster_labels, true_labels)
+
+    return total_time_s, flow_ratio, cut_imbalance, ari, misclassified_ratio
 
 
 def compare_bipartieness_algs(G, s, show_clusters=False, skip_cheeger=False):
@@ -1023,19 +1140,34 @@ def mid_experiment():
         print()
 
 
-def run_esp_5_times(G_dc, starting_vertices):
+def run_esp_5_times(G_dc, starting_vertices, T=None):
+    """
+    Run the EvoCutDirected algorithm 5 times, and return the result with the smallest flow ratio
+
+    Parameters
+    ----------
+    G_dc - the double cover graph
+    starting_vertices - the set of starting vertices. In each run, the algorithm will choose a starting vertex at
+                        random.
+    T - the number of steps of the evolving set process to take
+
+    Returns
+    -------
+    The L and R sets, the cut imbalance, and the flow ratio of the best run
+    """
     best_FR = 1
     best_L = []
     best_R = []
     best_CI = 0
 
     for i in range(5):
-        L, R, CI = lgc.find_bipartite_clusters.ms_evo_cut_directed(G_dc, starting_vertices, 0.1, T=2, debug=False)
-        S = L + [v + migration_visualisation.MIG_N for v in R]
-        fr = G_dc.compute_conductance(S, cpp=False)
+        s = random.choice(starting_vertices)
+        L, R, CI, FR = lgc.find_bipartite_clusters.ms_evo_cut_directed(G_dc, [s], 0.1, T=T, debug=False)
+        # S = L + [v + migration_visualisation.MIG_N for v in R]
+        # fr = G_dc.compute_conductance(S, cpp=False)
 
-        if fr < best_FR:
-            best_FR = fr
+        if FR < best_FR:
+            best_FR = FR
             best_L = L
             best_R = R
             best_CI = CI
@@ -1176,3 +1308,68 @@ def migration_experiment():
     # migration_visualisation.highlight_migration_set(california)
     # plt.show()
 
+
+def run_directed_experiment():
+    """Run experiments with the directed algorithm for the paper."""
+    ns = [1000]
+    qs = [10]  # to be divided by n
+    ps = [0, 0.5, 1]  # to be multiplied by q
+    etas = [0.9]
+    Ts = [x + 2 for x in range(5)]
+    repeat_number = 2
+
+    # with open("/home/peter/wc/dcpagerank/localgraphclustering/experiments/results/cdsbm_results_test.csv",
+    #           'w') as f_out:
+        # Write the header line of the results file
+        # f_out.write(f"id,n,p,q,eta,"
+        #             f"ecd_T,ecd_time,ecd_fr,ecd_ci,ecd_ari,ecd_misclassified,"
+        #             f"clsz_time,clsz_fr,clsz_ci,clsz_ari,clsz_misclassified\n")
+        # run_id = 0
+        # for n in ns:
+        #     for q_ratio in qs:
+        #         q = q_ratio / n
+        #         for p_mult in ps:
+        #             p = p_mult * q
+        #             for eta in etas:
+        #                 this_filename = get_cyclic_dsbm_filename(n, p, q, eta)
+        #                 double_cover = lgc.GraphLocal(filename=this_filename, semi_double_cover=True)
+        #                 herm_adj = hermitian.load_hermitian_adjacency(this_filename)
+        #                 target_l = list(range(n))
+        #                 target_r = list(range(n, 2 * n))
+        #                 for _ in range(repeat_number):
+        #                     run_id += 1
+
+                            # Get the results for CLSZ
+                            # clsz_time, clsz_fr, clsz_ci, clsz_ari, clsz_misclassified =\
+                            #     report_clsz_performance(herm_adj, target_l, target_r, double_cover)
+
+                            # for T in Ts:
+                            #     ecd_time, ecd_fr, ecd_ci, ecd_ari, ecd_misclassified =\
+                            #         report_evo_cut_directed_performance(double_cover, target_l, target_r, esp_steps=T)
+                            #     to_print = f"{run_id},{n},{p},{q},{eta},"\
+                            #                f"{T},{ecd_time},{ecd_fr},{ecd_ci},{ecd_ari},{ecd_misclassified},"\
+                            #                f"{clsz_time},{clsz_fr},{clsz_ci},{clsz_ari},{clsz_misclassified}"
+                            #     print(to_print)
+                            #     f_out.write(to_print)
+                            #     f_out.write("\n")
+                            #     f_out.flush()
+
+        # f_out.write(f"id,n,p,q,eta,"
+        #             f"ecd_T,ecd_time,ecd_fr,ecd_ci,ecd_ari,ecd_misclassified,"
+        #             f"clsz_time,clsz_fr,clsz_ci,clsz_ari,clsz_misclassified\n")
+    this_filename = get_local_dsbm_filename(1000, 10000, 0.001, 0.01, 0.001, 0.0001, 0.9)
+    double_cover = lgc.GraphLocal(filename=this_filename, semi_double_cover=True)
+    herm_adj = hermitian.load_hermitian_adjacency(this_filename)
+    target_l = list(range(1000))
+    target_r = list(range(1000, 2 * 1000))
+
+    # Get the results for CLSZ
+    clsz_time, clsz_fr, clsz_ci, clsz_ari, clsz_misclassified = \
+                                report_clsz_performance(herm_adj, target_l, target_r, double_cover)
+
+    for T in Ts:
+        ecd_time, ecd_fr, ecd_ci, ecd_ari, ecd_misclassified = \
+                                    report_evo_cut_directed_performance(double_cover, target_l, target_r, esp_steps=T)
+        to_print = f"{T},{ecd_time},{ecd_fr},{ecd_ci},{ecd_ari},{ecd_misclassified}," \
+                                           f"{clsz_time},{clsz_fr},{clsz_ci},{clsz_ari},{clsz_misclassified}"
+        print(to_print)

@@ -31,5 +31,5 @@ from .find_clusters import compute_clusters_from_region_adjacency
 from .find_clusters import compute_embeddings_and_distances_from_region_adjacency
 from .find_clusters import graph_segmentation_with_improve
 
-from .experiments import bipartiteness_experiments
+from .experiments import bipartiteness_experiments, hermitian
 from .stochastic_block_model import *
