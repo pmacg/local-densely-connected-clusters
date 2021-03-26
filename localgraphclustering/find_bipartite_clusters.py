@@ -291,7 +291,8 @@ def clsz_clusters(A, k):
     A partitioning of the vertices into clusters (as a list of lists).
     """
     eigenvalues, eigenvectors = sp.sparse.linalg.eigsh(A, k=int(2 * math.floor(k / 2)))
-    p = eigenvectors @ eigenvectors.transpose()
-    input_to_kmeans = np.block([[np.real(p), np.imag(p)]])
+    # p = eigenvectors @ eigenvectors.transpose()
+    # input_to_kmeans = np.block([[np.real(p), np.imag(p)]])
+    input_to_kmeans = np.block([[np.real(eigenvectors), np.imag(eigenvectors)]])
     kmeans = KMeans(n_clusters=k).fit(input_to_kmeans)
     return kmeans.labels_

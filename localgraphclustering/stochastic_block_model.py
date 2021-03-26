@@ -371,3 +371,152 @@ def create_triangle_flow_graph(filename, n, p, q, eta):
     Nothing, saves the graph as an edgelist to the filename provided.
     """
     create_local_flow_graph(filename, n, n, p, q, p, q, [[0.5, eta, 1-eta], [1-eta, 0.5, eta], [eta, 1-eta, 0.5]])
+
+
+def dsbm(filename, n, p, q, F):
+    """
+    Generate a directed graph from the dsbm described by Cucuringu et al.
+    Parameters
+    ----------
+    filename - the file to save the edgelist graph to
+    n - the number of vertices in each cluster
+    p - the probability of an edge inside a cluster
+    q - the probability of an edge between clusters
+    F - the flow matrix
+
+    Returns
+    -------
+    Nothing. Saves the graph as an edgelist to the specified file.
+    """
+    random.seed()
+    k = len(F)
+
+    with open(filename, 'w') as edgelist_file:
+        for cluster_id in range(k):
+            # Create the edges inside the cluster. For each vertex, get the number of edges going to vertices
+            # in the same cluster with a larger index using the binomial distribution and then sample those vertices.
+            for vertex_index in range(n):
+                number_new_neighbours = np.random.binomial(n - vertex_index - 1, p)
+                new_neighbours = random.sample(range(vertex_index + 1, n), number_new_neighbours)
+                for neighbour in new_neighbours:
+                    if random.random() < 0.5:
+                        edgelist_file.write(f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\t"
+                                            f"{idx_from_cluster_idx(cluster_id, neighbour, n)}\n")
+                    else:
+                        edgelist_file.write(f"{idx_from_cluster_idx(cluster_id, neighbour, n)}\t"
+                                            f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\n")
+
+        # Now construct the inter-cluster edges
+        for cluster_1_id in range(k):
+            for cluster_2_id in range(cluster_1_id + 1, k):
+                for vertex_index in range(n):
+                    number_new_neighbours = np.random.binomial(n, q)
+                    new_neighbours = random.sample(range(n), number_new_neighbours)
+                    for neighbour in new_neighbours:
+                        if random.random() < F[cluster_1_id][cluster_2_id]:
+                            edgelist_file.write(f"{idx_from_cluster_idx(cluster_1_id, vertex_index, n)}\t"
+                                                f"{idx_from_cluster_idx(cluster_2_id, neighbour, n)}\n")
+                        else:
+                            edgelist_file.write(f"{idx_from_cluster_idx(cluster_2_id, neighbour, n)}\t"
+                                                f"{idx_from_cluster_idx(cluster_1_id, vertex_index, n)}\n")
+
+
+def generalised_dsbm(filename, ns, ps, Q, F):
+    """
+    Construct a graph from the generalised dsbm which can have clusters of different sizes.
+    Parameters
+    ----------
+    filename - the file to save the graph to
+    ns - the sizes of the clusters
+    ps - the probabilities of vertices inside each cluster
+    Q - the probabilities of edges between pairwise clusters as a list of lists
+    F - the flow probabilities between pariwise clusters as a list of lists
+
+    Returns
+    -------
+    Nothing. Saves tha graph as an edgelist to file.
+    """
+    random.seed()
+    k = len(F)
+
+    def get_id_from_cluster_and_id(cid, v_idx):
+        return sum(ns[:cid]) + v_idx
+
+    with open(filename, 'w') as edgelist_file:
+        for cluster_id in range(k):
+            # Create the edges inside the cluster. For each vertex, get the number of edges going to vertices
+            # in the same cluster with a larger index using the binomial distribution and then sample those vertices.
+            for vertex_index in range(ns[cluster_id]):
+                number_new_neighbours = np.random.binomial(ns[cluster_id] - vertex_index - 1, ps[cluster_id])
+                new_neighbours = random.sample(range(vertex_index + 1, ns[cluster_id]), number_new_neighbours)
+                for neighbour in new_neighbours:
+                    if random.random() < 0.5:
+                        edgelist_file.write(f"{get_id_from_cluster_and_id(cluster_id, vertex_index)}\t"
+                                            f"{get_id_from_cluster_and_id(cluster_id, neighbour)}\n")
+                    else:
+                        edgelist_file.write(f"{get_id_from_cluster_and_id(cluster_id, neighbour)}\t"
+                                            f"{get_id_from_cluster_and_id(cluster_id, vertex_index)}\n")
+
+        # Now construct the inter-cluster edges
+        for cluster_1_id in range(k):
+            for cluster_2_id in range(cluster_1_id + 1, k):
+                for vertex_index in range(ns[cluster_1_id]):
+                    number_new_neighbours = np.random.binomial(ns[cluster_2_id], Q[cluster_1_id][cluster_2_id])
+                    new_neighbours = random.sample(range(ns[cluster_2_id]), number_new_neighbours)
+                    for neighbour in new_neighbours:
+                        if random.random() < F[cluster_1_id][cluster_2_id]:
+                            edgelist_file.write(f"{get_id_from_cluster_and_id(cluster_1_id, vertex_index)}\t"
+                                                f"{get_id_from_cluster_and_id(cluster_2_id, neighbour)}\n")
+                        else:
+                            edgelist_file.write(f"{get_id_from_cluster_and_id(cluster_2_id, neighbour)}\t"
+                                                f"{get_id_from_cluster_and_id(cluster_1_id, vertex_index)}\n")
+
+
+def create_cycle_flow_graph(filename, n, p, q, eta, k):
+    """
+    Create a 'cycle' flow graph with edges tending to follow a cycle around the clusters.
+    Parameters
+    ----------
+    filename - the file to save the edgelist to
+    n - the number of vertices in each cluster
+    p - the probability of an edge in a cluster
+    q - the probability of an edge between clusters
+    eta - the probability that an edge between clusters matches the flow direction
+    k - the number of clusters.
+
+    Returns
+    -------
+    Nothing. Saves the graph as an edgelist to the file specified.
+    """
+    random.seed()
+
+    with open(filename, 'w') as edgelist_file:
+        for cluster_id in range(k):
+            # Create the edges inside the cluster. For each vertex, get the number of edges going to vertices
+            # in the same cluster with a larger index using the binomial distribution and then sample those vertices.
+            for vertex_index in range(n):
+                number_new_neighbours = np.random.binomial(n - vertex_index - 1, p)
+                new_neighbours = random.sample(range(vertex_index + 1, n), number_new_neighbours)
+                for neighbour in new_neighbours:
+                    if random.random() < 0.5:
+                        edgelist_file.write(f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\t"
+                                            f"{idx_from_cluster_idx(cluster_id, neighbour, n)}\n")
+                    else:
+                        edgelist_file.write(f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\t"
+                                            f"{idx_from_cluster_idx(cluster_id, neighbour, n)}\n")
+
+            # Create the edges to the next cluster
+            next_cluster_id = cluster_id + 1 if cluster_id < k - 1 else 0
+
+            # Use the 'binomial trick' to create the edges
+            for vertex_index in range(n):
+                number_new_neighbours = np.random.binomial(n, q)
+                new_neighbours = random.sample(range(n), number_new_neighbours)
+                for neighbour in new_neighbours:
+                    if random.random() < eta:
+                        edgelist_file.write(f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\t"
+                                            f"{idx_from_cluster_idx(next_cluster_id, neighbour, n)}\n")
+                    else:
+                        edgelist_file.write(f"{idx_from_cluster_idx(next_cluster_id, neighbour, n)}\t"
+                                            f"{idx_from_cluster_idx(cluster_id, vertex_index, n)}\n")
+

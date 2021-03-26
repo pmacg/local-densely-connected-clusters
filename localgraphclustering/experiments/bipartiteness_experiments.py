@@ -90,7 +90,7 @@ def get_local_dsbm_filename(n1, n2, p1, q1, p2, q2, f):
     return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/directed_local_cluster_size_{n1}_{n2}_{p1}_{q1}_{p2}_{q2}_{f}.edgelist"
 
 
-def get_cyclic_dsbm_filename(n, p, q, eta):
+def get_cyclic_dsbm_filename(n, p, q, eta, k):
     """
     Return the filename used to store the cdsbm with the given parameters.
     Parameters
@@ -104,7 +104,7 @@ def get_cyclic_dsbm_filename(n, p, q, eta):
     -------
     String
     """
-    return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}.edgelist"
+    return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}_{k}.edgelist"
 
 
 def report_ms_performance(G, s, alpha, epsilon, target_L, target_R, show_output=True):
@@ -159,17 +159,18 @@ def report_evo_cut_directed_performance(G, target_l, target_r, esp_steps=None):
 
     # Compute the ARI and misclassified ratio
     ari = compute_ari(L, R, target_l, target_r, n)
+    symdiff = compute_symmetric_difference(L, R, target_l, target_r)
 
-    true_labels = np.zeros((n, ))
-    true_labels[target_l] = 1
-    true_labels[target_r] = 2
-    predicted_labels = np.zeros((n, ))
-    predicted_labels[L] = 1
-    predicted_labels[R] = 2
-    misclassified_ratio = compute_misclassified_ratio(predicted_labels, true_labels)
+    # true_labels = np.zeros((n, ))
+    # true_labels[target_l] = 1
+    # true_labels[target_r] = 2
+    # predicted_labels = np.zeros((n, ))
+    # predicted_labels[L] = 1
+    # predicted_labels[R] = 2
+    # misclassified_ratio = compute_misclassified_ratio(predicted_labels, true_labels)
 
     # Return everything
-    return total_time_s, flow_ratio, cut_imbalance, ari, misclassified_ratio
+    return total_time_s, flow_ratio, cut_imbalance, ari, symdiff
 
 
 def compute_misclassified_ratio(predicted_labels, true_labels):
@@ -198,46 +199,61 @@ def compute_misclassified_ratio(predicted_labels, true_labels):
     return best_misclassified_ratio
 
 
-def report_clsz_performance(herm_adj, target_l, target_r, double_cover):
+def report_clsz_performance(herm_adj, target_l, target_r, double_cover, k):
     """Print the performance of the CLSZ algorithm for the given graph.
     :param herm_adj: the sparse hermitian adjacency matrix of the graph
     :param target_l: the ground truth left cluster (in the original graph)
     :param target_r: the ground truth right cluster (in the original graph)
     :param double_cover: the double cover of the graph, used to compute the flow ratio
+    :param k: the number of clusters in the graph
     :return: time, flow_ratio, cut_imbalance, ari, misclassified_ratio
     """
     n = herm_adj.shape[0]
     start_time = time.clock()
-    cluster_labels = lgc.find_bipartite_clusters.clsz_clusters(herm_adj, 3)
+    cluster_labels = lgc.find_bipartite_clusters.clsz_clusters(herm_adj, k)
     total_time_s = time.clock() - start_time
+
+    # Set up the true labels - we only care about 2 of the clusters!
+    true_labels = np.zeros((n, ))
+    true_labels[target_l] = 1
+    true_labels[target_r] = 2
 
     # Compute the best flow ratio and cut_imbalance
     best_flow_ratio = 1
     best_cut_imbalance = 0
-    for i, j in [(0, 1), (1, 2), (2, 0), (1, 0), (2, 1), (0, 2)]:
-        this_l = np.where(cluster_labels == i)[0]
-        this_r = np.where(cluster_labels == j)[0]
-        s = np.append(this_l, [x + n for x in this_r])
-        flow_ratio = double_cover.compute_conductance(s, cpp=False)
-        if flow_ratio < best_flow_ratio:
-            best_flow_ratio = flow_ratio
+    best_ari = 0
+    best_misclassified_vertices = 1
+    for i in range(k):
+        for j in range(k):
+            if i == j:
+                continue
+            this_l = np.where(cluster_labels == i)[0]
+            this_r = np.where(cluster_labels == j)[0]
+            s = np.append(this_l, [x + n for x in this_r])
+            flow_ratio = double_cover.compute_conductance(s, cpp=False)
+            if flow_ratio < best_flow_ratio:
+                best_flow_ratio = flow_ratio
 
-        e_l_r = double_cover.compute_weight(this_l, [v + n for v in this_r])
-        e_r_l = double_cover.compute_weight(this_r, [v + n for v in this_l])
-        cut_imbalance = 0.5 * math.fabs((e_l_r - e_r_l) / (e_l_r + e_r_l))
-        if cut_imbalance > best_cut_imbalance:
-            best_cut_imbalance = cut_imbalance
+            e_l_r = double_cover.compute_weight(this_l, [v + n for v in this_r])
+            e_r_l = double_cover.compute_weight(this_r, [v + n for v in this_l])
+            cut_imbalance = 0.5 * math.fabs((e_l_r - e_r_l) / (e_l_r + e_r_l))
+            if cut_imbalance > best_cut_imbalance:
+                best_cut_imbalance = cut_imbalance
 
-    # Compute the ARI score for these labels
-    true_labels = np.zeros((n, ))
-    true_labels[target_l] = 1
-    true_labels[target_r] = 2
-    ari = skl.metrics.adjusted_rand_score(true_labels, cluster_labels)
+            # Compute the ARI score for these labels
+            these_labels = np.zeros((n,))
+            these_labels[this_l] = 1
+            these_labels[this_r] = 2
+            ari = skl.metrics.adjusted_rand_score(true_labels, these_labels)
+            if ari > best_ari:
+                best_ari = ari
 
-    # Compute the ratio of misclassified vertices
-    misclassified_ratio = compute_misclassified_ratio(cluster_labels, true_labels)
+            # Compute the misclassified vertices for these labels
+            misclassified_ratio = compute_symmetric_difference(this_l, this_r, target_l, target_r)
+            if misclassified_ratio < best_misclassified_vertices:
+                best_misclassified_vertices = misclassified_ratio
 
-    return total_time_s, flow_ratio, cut_imbalance, ari, misclassified_ratio
+    return total_time_s, best_flow_ratio, best_cut_imbalance, best_ari, best_misclassified_vertices
 
 
 def compare_bipartieness_algs(G, s, show_clusters=False, skip_cheeger=False):
@@ -1311,17 +1327,18 @@ def migration_experiment():
 
 def run_directed_experiment():
     """Run experiments with the directed algorithm for the paper."""
-    ns = [1000]
-    qs = [10]  # to be divided by n
-    ps = [0, 0.5, 1]  # to be multiplied by q
-    etas = [0.9]
-    Ts = [x + 2 for x in range(5)]
-    repeat_number = 2
+    # ns = [1000]
+    # qs = [10]  # to be divided by n
+    # ps = [0.1]  # to be multiplied by q
+    # etas = [1]
+    # ks = [50]
+    Ts = [x + 2 for x in range(8)]
+    # repeat_number = 2
 
     # with open("/home/peter/wc/dcpagerank/localgraphclustering/experiments/results/cdsbm_results_test.csv",
     #           'w') as f_out:
         # Write the header line of the results file
-        # f_out.write(f"id,n,p,q,eta,"
+        # f_out.write(f"id,n,p,q,eta,k,"
         #             f"ecd_T,ecd_time,ecd_fr,ecd_ci,ecd_ari,ecd_misclassified,"
         #             f"clsz_time,clsz_fr,clsz_ci,clsz_ari,clsz_misclassified\n")
         # run_id = 0
@@ -1331,41 +1348,45 @@ def run_directed_experiment():
         #         for p_mult in ps:
         #             p = p_mult * q
         #             for eta in etas:
-        #                 this_filename = get_cyclic_dsbm_filename(n, p, q, eta)
-        #                 double_cover = lgc.GraphLocal(filename=this_filename, semi_double_cover=True)
-        #                 herm_adj = hermitian.load_hermitian_adjacency(this_filename)
-        #                 target_l = list(range(n))
-        #                 target_r = list(range(n, 2 * n))
-        #                 for _ in range(repeat_number):
-        #                     run_id += 1
+        #                 for k in ks:
+        #                     this_filename = get_cyclic_dsbm_filename(n, p, q, eta, k)
+        #                     double_cover = lgc.GraphLocal(filename=this_filename, semi_double_cover=True)
+        #                     herm_adj = hermitian.load_hermitian_adjacency(this_filename)
+        #                     target_l = list(range(n))
+        #                     target_r = list(range(n, 2 * n))
+        #                     for _ in range(repeat_number):
+        #                         run_id += 1
 
-                            # Get the results for CLSZ
-                            # clsz_time, clsz_fr, clsz_ci, clsz_ari, clsz_misclassified =\
-                            #     report_clsz_performance(herm_adj, target_l, target_r, double_cover)
+                                # Get the results for CLSZ
+                                # clsz_time, clsz_fr, clsz_ci, clsz_ari, clsz_misclassified =\
+                                #     report_clsz_performance(herm_adj, target_l, target_r, double_cover, k)
 
-                            # for T in Ts:
-                            #     ecd_time, ecd_fr, ecd_ci, ecd_ari, ecd_misclassified =\
-                            #         report_evo_cut_directed_performance(double_cover, target_l, target_r, esp_steps=T)
-                            #     to_print = f"{run_id},{n},{p},{q},{eta},"\
-                            #                f"{T},{ecd_time},{ecd_fr},{ecd_ci},{ecd_ari},{ecd_misclassified},"\
-                            #                f"{clsz_time},{clsz_fr},{clsz_ci},{clsz_ari},{clsz_misclassified}"
-                            #     print(to_print)
-                            #     f_out.write(to_print)
-                            #     f_out.write("\n")
-                            #     f_out.flush()
+                                # for T in Ts:
+                                #     ecd_time, ecd_fr, ecd_ci, ecd_ari, ecd_misclassified =\
+                                #         report_evo_cut_directed_performance(double_cover, target_l, target_r, esp_steps=T)
+                                #     to_print = f"{run_id},{n},{p},{q},{eta},{k},"\
+                                #                f"{T},{ecd_time},{ecd_fr},{ecd_ci},{ecd_ari},{ecd_misclassified},"\
+                                #                f"{clsz_time},{clsz_fr},{clsz_ci},{clsz_ari},{clsz_misclassified}"
+                                #     print(to_print)
+                                #     f_out.write(to_print)
+                                #     f_out.write("\n")
+                                #     f_out.flush()
 
-        # f_out.write(f"id,n,p,q,eta,"
-        #             f"ecd_T,ecd_time,ecd_fr,ecd_ci,ecd_ari,ecd_misclassified,"
-        #             f"clsz_time,clsz_fr,clsz_ci,clsz_ari,clsz_misclassified\n")
+    #####################################
+    # Try the local flow graph
+    #####################################
     this_filename = get_local_dsbm_filename(1000, 10000, 0.001, 0.01, 0.001, 0.0001, 0.9)
+    this_filename = get_local_dsbm_filename(1000, 10000, 0.001, 0.05, 0.001, 0.0001, 1)
+    this_filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/gdsbm_crafted_4.edgelist"
+    # this_filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/dsbm_5000_0.001_crafted.edgelist"
     double_cover = lgc.GraphLocal(filename=this_filename, semi_double_cover=True)
     herm_adj = hermitian.load_hermitian_adjacency(this_filename)
-    target_l = list(range(1000))
-    target_r = list(range(1000, 2 * 1000))
+    target_l = list(range(100))
+    target_r = list(range(100, 2 * 100))
 
     # Get the results for CLSZ
     clsz_time, clsz_fr, clsz_ci, clsz_ari, clsz_misclassified = \
-                                report_clsz_performance(herm_adj, target_l, target_r, double_cover)
+                                report_clsz_performance(herm_adj, target_l, target_r, double_cover, 5)
 
     for T in Ts:
         ecd_time, ecd_fr, ecd_ci, ecd_ari, ecd_misclassified = \

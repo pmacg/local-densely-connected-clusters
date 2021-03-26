@@ -3,10 +3,18 @@ Provides a main method for running code from this package.
 You should implement anything you'd like to run as a method in the experiments folder, and call a single function from
 this main function.
 """
-from stochastic_block_model import create_block_path_graph, create_block_cycle_graph, create_locally_bipartite_graph, pure_locally_bipartite_graph, create_local_flow_graph, create_triangle_flow_graph
+from stochastic_block_model import create_block_path_graph, create_block_cycle_graph, create_locally_bipartite_graph, pure_locally_bipartite_graph, create_local_flow_graph, create_triangle_flow_graph, create_cycle_flow_graph, dsbm, generalised_dsbm
 import experiments
+import os
 import os.path
 from matplotlib import pyplot as plt
+
+# 'nice' the process
+os.nice(20)
+
+
+def get_local_dsbm_filename(n1, n2, p1, q1, p2, q2, f):
+    return f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/directed_local_cluster_size_{n1}_{n2}_{p1}_{q1}_{p2}_{q2}_{f}.edgelist"
 
 
 def main():
@@ -140,10 +148,11 @@ def main():
     ########################################################
     # Create graphs from the directed stochastic block model
     ########################################################
-    # ns = [100, 1000]
-    # qs = [3, 10]  # to be divided by n
-    # ps = [0, 0.5, 1]  # to be multiplied by q
-    # etas = [0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    # ns = [1000]
+    # qs = [10]  # to be divided by n
+    # ps = [0.1]  # to be multiplied by q
+    # etas = [1]
+    # ks = [50]
 
     # for n in ns:
     #     for q_unnormalised in qs:
@@ -151,9 +160,21 @@ def main():
     #         for p_unnormalised in ps:
     #             p = p_unnormalised * q
     #             for eta in etas:
-    #                 sbm_filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}.edgelist"
-    #                 if not os.path.isfile(sbm_filename):
-    #                     create_triangle_flow_graph(sbm_filename, n, p, q, eta)
+    #                 for k in ks:
+    #                     sbm_filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/csdbm_{n}_{p}_{q}_{eta}_{k}.edgelist"
+    #                     if not os.path.isfile(sbm_filename):
+    #                         create_cycle_flow_graph(sbm_filename, n, p, q, eta, k)
+
+    filename = f"/home/peter/wc/dcpagerank/localgraphclustering/experiments/datasets/dsbm/gdsbm_crafted_4.edgelist"
+    # filename = get_local_dsbm_filename(1000, 10000, 0.001, 0.05, 0.001, 0.0001, 1)
+    generalised_dsbm(filename,
+                     [100, 100, 1000, 1000, 1000],
+                     [0.001, 0.001, 0.001, 0.001, 0.001],
+                     [[0, 0.5, 0.005, 0, 0, 0], [0.5, 0, 0.005, 0, 0, 0], [0.005, 0.005, 0, 0.01, 0.01], [0, 0, 0.01, 0, 0.01], [0, 0, 0.01, 0.01, 0]],
+                     [[0, 0.5, 0, 0, 0], [0.5, 0, 1, 0, 0], [1, 0, 0, 0.9, 0.1], [1, 1, 0.1, 0, 0.9], [1, 1, 0.9, 0.1, 0]])
+
+    # generalised_dsbm(filename, 5000, 0.001, 0.001, [[0.5, 1, 0, 0, 0], [0, 0.5, 1, 1, 1], [1, 0, 0.5, 1, 1], [1, 0, 0, 0.5, 1], [1, 0, 0, 0, 0.5]])
+    # create_local_flow_graph(filename, 1000, 10000, 0.001, 0.05, 0.001, 0.0001, [[0.5, 1, 0.5], [0, 0.5, 0.5], [0.5, 0.5, 0.5]])
 
     ##################################################
     # Test the CLSZ algorithm
