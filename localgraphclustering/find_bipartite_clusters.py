@@ -6,21 +6,18 @@ time proportional to the size of the output set and independent of the size of t
 from .cpp import *
 from .sweep_cut import sweep_cut_dc, sweep_cut_dc_from_signed_vec
 from .algorithms import eig_nL
-import localgraphclustering as lgc
 import scipy as sp
+import scipy.sparse
 import math
 import random
 import numpy.random as npr
-import numpy as np
-from matplotlib import pyplot as plt
 
 
-def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01, debug=False):
+def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01):
     """
     Find an almost-bipartite set close to starting_vertex, using the truncated power method algorithm given by
     Li and Peng.
 
-    :param debug: whether to print debug statements
     :param G: a GraphLocal object on which to perform the algorithm
     :param starting_vertex: the index of the vertex at which to start the algorithm
     :param T: the number of iterations of the power method to perform.
@@ -57,15 +54,6 @@ def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01, debug=False):
                 new_data_length += 1
         indptr = [0, new_data_length]
         r = sp.sparse.csc_matrix((data, indices, indptr), (n, 1))
-
-        if debug:
-            print(f"Iteration: {t}")
-            print(indices)
-            print(data)
-            print()
-            not_S = list(set(range(n)) - set(indices))
-            G.draw_groups([indices, not_S], pos=lgc.get_pos_for_sbm_cycle(int(n / 8), 8))
-            plt.show()
 
         # Run the bipartiteness sweep set
         L, R, bipart = sweep_cut_dc_from_signed_vec(G, indices, data, normalise_by_degree=True)

@@ -1,7 +1,6 @@
 """
 This module provides a method for computing the approximate pagerank on the double cover of a graph locally.
 """
-import warnings
 from .cpp import *
 
 
