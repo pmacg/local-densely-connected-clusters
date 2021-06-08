@@ -1,5 +1,5 @@
-# Local Graph Clustering for Finding Densely Connected Clusters
-This repository contains code to accompany the paper "Local Graph Clustering for Finding Densely Connected Clusters",
+# Local Algorithms for Finding Densely Connected Clusters
+This repository contains code to accompany the paper "Local Algorithms for Finding Densely Connected Clusters",
 to appear in ICML 2021.
 
 The implementation extends the open source library available [here](https://github.com/kfoynt/LocalGraphClustering)
