@@ -3,7 +3,7 @@ from .GraphDrawing import GraphDrawing
 from .fiedler import fiedler, fiedler_local
 from .approximate_pagerank import approximate_pagerank
 from .approximate_pagerank_dc import approximate_pagerank_dc
-from .find_bipartite_clusters import ms_almost_bipartite
+from .find_bipartite_clusters import local_bipartite_dc
 from .approximate_pagerank_weighted import approximate_PageRank_weighted
 from .sweep_cut import sweep_cut, sweep_cut_dc
 from .ncp import NCPData, partialfunc
@@ -31,5 +31,4 @@ from .find_clusters import compute_clusters_from_region_adjacency
 from .find_clusters import compute_embeddings_and_distances_from_region_adjacency
 from .find_clusters import graph_segmentation_with_improve
 
-from .experiments import bipartiteness_experiments, hermitian
 from .stochastic_block_model import *

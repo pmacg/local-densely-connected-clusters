@@ -62,7 +62,7 @@ def approximate_pagerank_dc(G,
 
     n = G.adjacency_matrix.shape[0]
     (x_ids_1, x_ids_2, values_1, values_2) = dcpagerank_cpp(n, G.ai, G.aj, alpha, epsilon, ref_nodes,
-                                                                    iterations, simplify=False)
+                                                            iterations, simplify=False)
 
     if normalize:
         # we can't use degrees because it could be weighted

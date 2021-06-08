@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def sweepcut(p,g):
     """
     Computes a cluster using sweep cut and conductance as a criterion. 

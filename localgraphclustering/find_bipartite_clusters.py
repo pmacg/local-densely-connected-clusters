@@ -1,24 +1,18 @@
 """
 This file gives several methods for finding an almost-bipartite set.
-Some of the methods are local in the sense that they will find a set close to some seed vertex in a graph.
+Some of the methods are local in the sense that they will find a set close to some seed vertex in a graph and run in
+time proportional to the size of the output set and independent of the size of the graph.
 """
 from .cpp import *
 from .sweep_cut import sweep_cut_dc, sweep_cut_dc_from_signed_vec
 from .algorithms import eig_nL
 import localgraphclustering as lgc
 import scipy as sp
-import scipy.sparse
-import scipy.sparse.linalg
-from sklearn.cluster import KMeans
 import math
 import random
 import numpy.random as npr
 import numpy as np
 from matplotlib import pyplot as plt
-
-# Filter warnings for debugging
-import warnings
-# warnings.filterwarnings('error', category=sp.sparse.SparseEfficiencyWarning)
 
 
 def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01, debug=False):
@@ -36,10 +30,8 @@ def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01, debug=False):
       - R - the vertices in the right set
       - bipart - the bipartiteness of the resulting set.
     """
-    # Construct the pseudo-laplacian of the graph for use in the power method
+    # Get the pseudo-laplacian of the graph for use in the power method
     n = G.adjacency_matrix.shape[0]
-    # D_inv = sp.sparse.spdiags(G.dn.transpose(), 0, n, n)
-    # M = sp.sparse.identity(n) - G.adjacency_matrix.dot(D_inv)
     M = G.rw_laplacian
 
     # Construct the starting vector for the power method
@@ -88,10 +80,9 @@ def lp_almost_bipartite(G, starting_vertex, T=100, xi_0=0.01, debug=False):
     return best_L, best_R, best_bipartiteness
 
 
-def ms_almost_bipartite(G, starting_vertex, alpha=0.1, epsilon=1e-5, max_iterations=1000000):
+def local_bipartite_dc(G, starting_vertex, alpha=0.1, epsilon=1e-5, max_iterations=1000000):
     """
-    Find an almost-bipartite set close to starting_vertex, using the double cover pagerank algorithm given by
-    Macgregor and Sun.
+    Find an almost-bipartite set close to starting_vertex, using the double cover pagerank algorithm.
 
     :param G: a GraphLocal object on which to perform the algorithm.
     :param starting_vertex: the vertex id at which to start the algorithm.
@@ -134,21 +125,19 @@ def ms_almost_bipartite(G, starting_vertex, alpha=0.1, epsilon=1e-5, max_iterati
     return L, R, conductance_dc
 
 
-def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
+def evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
     """
-    An implementation of the EvoCutDirected algorithm. This implementation is not fully optimised.
-    The graph is assumed to be unweighted.
+    An implementation of the EvoCutDirected algorithm. The graph is assumed to be unweighted.
 
     :param G: the semi-double cover of the directed graph on which to operate
     :param starting_vertices: a list of starting vertices
     :param target_phi: the flow ratio of the target sets
     :param T: Optionally specify the internal parameter to use instead of the one computed from phi
-    :return: the returned clusters L and R, as vertex indices on the original graph, along with the cut imbalance and
-    flow ratio
+    :return: the returned clusters L and R, as vertex indices on the original graph, along with the flow ratio phi
     """
     # Compute the value of T to use
     if T is None:
-        T = max(2, math.floor(1 / (100 * (target_phi ** (2/3)))))
+        T = math.floor(1 / (100 * (target_phi ** (2/3))))
 
     if debug:
         print(f"T: {T}")
@@ -209,7 +198,7 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
                 S_new.add(v)
 
             # Check each neighbour of S
-            # Note that this is not efficient
+            # Note that this is not optimally efficient
             for u in G.neighbors(v):
                 if u not in checked:
                     checked.add(u)
@@ -241,21 +230,14 @@ def ms_evo_cut_directed(G, starting_vertices, target_phi, T=None, debug=False):
 
     # If either cluster is empty, return
     if len(L) == 0 or len(R) == 0:
-        return L, R_other, 1, 1
+        return L, R_other, 0
 
     # Compute the cut imbalance
     w_L_R = G.compute_weight(L, R)
     w_R_L = G.compute_weight(R_other, L_other)
     CI = (1/2) * abs((w_L_R - w_R_L)/(w_L_R + w_R_L))
 
-    # Compute the flow ratio
-    FR = G.compute_conductance(L + R)
-    # w_L_R = G.compute_weight(L, R)
-    # vol_out_L = G.volume(L)
-    # vol_in_R = G.volume(R)
-    # FR = 1 - (2 * w_L_R) / (vol_out_L + vol_in_R)
-
-    return L, R_other, CI, FR
+    return L, R_other, CI
 
 
 def bipart_cheeger_cut(G):
@@ -275,24 +257,3 @@ def bipart_cheeger_cut(G):
 
     # Perform the sweep cut and return
     return sweep_cut_dc_from_signed_vec(G, range(n), top_eigvec, normalise_by_degree=True)
-
-
-def clsz_clusters(A, k):
-    """
-    Given a hermitian adjacency matrix, compute the clusters given by the CLSZ algorithm
-
-    Parameters
-    ----------
-    A - the hermitian adjacency matrix of the graph
-    k - the number of clusters to look for
-
-    Returns
-    -------
-    A partitioning of the vertices into clusters (as a list of lists).
-    """
-    eigenvalues, eigenvectors = sp.sparse.linalg.eigsh(A, k=int(2 * math.floor(k / 2)))
-    # p = eigenvectors @ eigenvectors.transpose()
-    # input_to_kmeans = np.block([[np.real(p), np.imag(p)]])
-    input_to_kmeans = np.block([[np.real(eigenvectors), np.imag(eigenvectors)]])
-    kmeans = KMeans(n_clusters=k).fit(input_to_kmeans)
-    return kmeans.labels_
