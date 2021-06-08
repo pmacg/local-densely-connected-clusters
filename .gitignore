@@ -18,7 +18,6 @@ localgraphclustering/graph_lib/
 *.zip
 *.tgz
 *.xlsx
-*.txt
 **/datasets/
 **/results/
 
