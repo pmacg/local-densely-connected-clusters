@@ -11,7 +11,6 @@ localgraphclustering/graph_lib/
 **/.idea/
 
 *.csv
-*.png
 *.edgelist
 *.pdf
 *.dta
