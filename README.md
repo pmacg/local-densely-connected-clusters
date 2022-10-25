@@ -2,6 +2,8 @@
 This repository contains code to accompany the paper "Local Algorithms for Finding Densely Connected Clusters",
 published at ICML 2021.
 
+Please see [the demo page](https://pmacg.io/conflict/) to experiment with the MID conflict dataset for yourself.
+
 The implementation extends the open source library available [here](https://github.com/kfoynt/LocalGraphClustering)
 with the new algorithms introduced in the paper.
 
