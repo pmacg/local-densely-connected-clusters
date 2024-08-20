@@ -24,4 +24,4 @@ is in the `localgraphclustering/find_bipartite_clusters.py` file.
 
 ## Contact
 If you have any questions, or would like help with getting up and running, please contact
-[peter.macgregor@ed.ac.uk](mailto:peter.macgregor@ed.ac.uk).
+[prm4@st-andrews.ac.uk](mailto:prm4@st-andrews.ac.uk).
