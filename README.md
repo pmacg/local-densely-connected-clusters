@@ -22,6 +22,12 @@ To install the dependencies and compile the code, run
 To run the example code, run the `example.py` script, which generates an example graph and executes the new
 local algorithm on it.
 
+The `example.py` file also includes a new self-contained implementation of the local_bipart_dc algorithm which was developed after
+the publication of the original paper.
+The new implementation is much simpler, using the [STAG library](https://staglibrary.io) implementation of the ACL local
+clustering algorithm.
+This implementation is likely to be a better starting point for extending or comparing with this algorithm.
+
 If you are interested in digging into the code, the entry point for the new algorithms
 is in the `localgraphclustering/find_bipartite_clusters.py` file.
 
