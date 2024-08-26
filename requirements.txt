@@ -8,5 +8,6 @@ plotly
 coverage
 python-coveralls
 jupyter
+scikit-learn
 joblib
-sklearn
+stag

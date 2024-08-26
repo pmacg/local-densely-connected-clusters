@@ -13,11 +13,14 @@ We add an implementation of 3 algorithms:
 - `LPAlmosBipartite`: the algorithm by Li & Peng (2013) to which we compare `LocBipartDC`
 
 ## Installing and running the code
+The code requires a python version at most 3.11. Python 3.12 removes the imp module which is required by this code.
+
 To install the dependencies and compile the code, run
 - ```python3 -m pip install -r requirements.txt```
 - ```bin/createGraphLibFile.sh```
 
-We provide some simple examples showing how to use our new algorithms in the `notebooks` folder.
+To run the example code, run the `example.py` script, which generates an example graph and executes the new
+local algorithm on it.
 
 If you are interested in digging into the code, the entry point for the new algorithms
 is in the `localgraphclustering/find_bipartite_clusters.py` file.
