@@ -28,9 +28,6 @@ The new implementation is much simpler, using the [STAG library](https://staglib
 clustering algorithm.
 This implementation is likely to be a better starting point for extending or comparing with this algorithm.
 
-If you are interested in digging into the code, the entry point for the new algorithms
-is in the `localgraphclustering/find_bipartite_clusters.py` file.
-
 ## Contact
 If you have any questions, or would like help with getting up and running, please contact
 [prm4@st-andrews.ac.uk](mailto:prm4@st-andrews.ac.uk).
